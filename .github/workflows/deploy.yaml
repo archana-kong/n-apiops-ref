@@ -83,7 +83,7 @@ jobs:
 
       - name: Add tags
         run: |
-          cat ${{ env.KONG_CONFIG_FILE }} | deck file add-tags ${{ matrix.api }} "generated_by:deck" -o ${{ env.KONG_CONFIG_FILE }}
+          cat ${{ env.KONG_CONFIG_FILE }} | deck file add-tags ${{ matrix.api }} -o ${{ env.KONG_CONFIG_FILE }}
 
       - name: Render Kong Configuration
         run: |
@@ -140,6 +140,10 @@ jobs:
         run: |
           deck file render ./artifacts/kong-config-*/*.yaml ${{ env.GLOBAL_PATH }}/kong/merges/*.yaml --populate-env-vars  -o kong-merged.yaml
 
+      - name: Add tags to all Kong Configuration
+        run: |
+          cat kong-merged.yaml | deck file add-tags generated_by:deck -o ${{ env.KONG_CONFIG_FILE }}
+     
       - name: Lint Merged Kong Configuration
         run: |
           deck file lint -s kong-merged.yaml ${{ env.GLOBAL_PATH }}/kong.ruleset.global.yaml
