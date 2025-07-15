@@ -186,6 +186,34 @@ jobs:
           echo "Diff output:"
           cat kong_diff.txt
 
+      - name: No Changes Notice
+        if: steps.diff.outputs.has_diff == 'false'
+        run: |
+          echo ""
+          echo "🟢 =========================================="
+          echo "🟢   NO CONFIGURATION CHANGES DETECTED"
+          echo "🟢 =========================================="
+          echo "🟢"
+          echo "🟢 The Kong configuration is already up-to-date."
+          echo "🟢 The apply-config job will be SKIPPED."
+          echo "🟢"
+          echo "🟢 =========================================="
+          echo ""
+
+      - name: Changes Detected Notice
+        if: steps.diff.outputs.has_diff == 'true'
+        run: |
+          echo ""
+          echo "🔄 =========================================="
+          echo "🔄   CONFIGURATION CHANGES DETECTED"
+          echo "🔄 =========================================="
+          echo "🔄"
+          echo "🔄 Differences found between local and remote."
+          echo "🔄 The apply-config job will PROCEED."
+          echo "🔄"
+          echo "🔄 =========================================="
+          echo ""
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
