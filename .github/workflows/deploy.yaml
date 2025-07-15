@@ -270,7 +270,7 @@ jobs:
             --konnect-control-plane-name="${{ inputs.konnect_control_plane_name }}"
 
       - name: Get a fresh backup
-        if: steps.sync.outcome == 'success' || steps.sync.outcome == 'skipped'
+        if: steps.sync.outcome == 'success'
         shell: bash
         run: |
           deck gateway dump \
