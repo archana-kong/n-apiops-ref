@@ -139,7 +139,7 @@ jobs:
 
       - name: Lint Merged Kong Configuration
         run: |
-          deck file lint -s kong-merged.yaml ${{ env.COMMON_PATH }}/kong.ruleset.global.yaml
+          deck file lint -s kong-merged.yaml ${{ env.GLOBAL_PATH }}/kong.ruleset.global.yaml
 
       - name: Validate Merged Kong Configuration
         run: |
