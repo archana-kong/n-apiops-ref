@@ -18,8 +18,8 @@ on:
           type: string
 
 env:
-  COMMON_PATH: ${{ github.workspace }}/.common
-  GLOBAL_PATH: ${{ github.workspace }}/.global
+  COMMON_PATH: ${{ github.workspace }}/common
+  GLOBAL_PATH: ${{ github.workspace }}/global
   KONNECT_SERVER_URL: https://eu.api.konghq.com
 
 jobs:
@@ -135,7 +135,7 @@ jobs:
       
       - name: Merge Kong Configuration
         run: |
-          deck file render ./artifacts/*/*.yaml ${{ env.GLOBAL_PATH }}/kong/merges/*.yaml --populate-env-vars  -o kong-merged.yaml
+          deck file render ./artifacts/kong-config-*/*.yaml ${{ env.GLOBAL_PATH }}/kong/merges/*.yaml --populate-env-vars  -o kong-merged.yaml
 
       - name: Lint Merged Kong Configuration
         run: |
@@ -166,7 +166,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: config
+          name: artifacts
           path: |
             kong-merged.yaml
             kong_diff.txt
@@ -185,12 +185,7 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: config
-
-      - name: List downloaded artifacts
-        run: |
-          echo "Downloaded artifacts:"
-          cat ./config/config/kong-merged.yaml
+          name: artifacts
 
       - name: Get Control Plane Backup
         shell: bash
@@ -206,7 +201,7 @@ jobs:
         id: sync
         shell: bash
         run: |
-          deck gateway sync ./config/config/kong-merged.yaml  \
+          deck gateway sync kong-merged.yaml \
             --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
             --konnect-token="${{ secrets.KONNECT_TOKEN  }}" \
             --konnect-control-plane-name="${{ inputs.konnect_control_plane_name }}"
@@ -237,6 +232,6 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts
+          name: backup
           path: |
             kong_backup.yaml
