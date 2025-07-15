@@ -112,6 +112,9 @@ jobs:
   build-config:
     runs-on: ubuntu-latest
     needs: build-apis
+    outputs:
+      has_diff: ${{ steps.diff.outputs.has_diff }}
+      diff_exit_code: ${{ steps.diff.outputs.diff_exit_code }}
     
     steps:
       - name: Checkout repository
@@ -151,15 +154,35 @@ jobs:
           cat kong-merged.yaml
 
       - name: Diff Config
+        id: diff
         shell: bash
         run: |
+          set +e  # Don't exit on error
           deck gateway diff kong-merged.yaml  \
+            --non-zero-exit-code \
             --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
             --konnect-token="${{ secrets.KONNECT_TOKEN }}" \
             --konnect-control-plane-name="${{ inputs.konnect_control_plane_name }}" > kong_diff.txt
+          DIFF_EXIT_CODE=$?
+          echo "diff_exit_code=$DIFF_EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "Diff command exit code: $DIFF_EXIT_CODE"
+          
+          if [ $DIFF_EXIT_CODE -eq 0 ]; then
+            echo "has_diff=false" >> $GITHUB_OUTPUT
+            echo "No differences found"
+          elif [ $DIFF_EXIT_CODE -eq 2 ]; then
+            echo "has_diff=true" >> $GITHUB_OUTPUT
+            echo "Differences found - apply-config job will run"
+          else
+            echo "has_diff=false" >> $GITHUB_OUTPUT
+            echo "Error occurred during diff (exit code: $DIFF_EXIT_CODE)"
+            exit $DIFF_EXIT_CODE
+          fi
 
       - name: Display Diff Output
         run: |
+          echo "Diff exit code: ${{ steps.diff.outputs.diff_exit_code }}"
+          echo "Has diff: ${{ steps.diff.outputs.has_diff }}"
           echo "Diff output:"
           cat kong_diff.txt
 
@@ -175,6 +198,7 @@ jobs:
     environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     needs: build-config
+    if: needs.build-config.outputs.has_diff == 'true'
     
     steps:
       - name: Checkout repository
