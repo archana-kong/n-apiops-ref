@@ -140,9 +140,9 @@ jobs:
         run: |
           deck file render ./artifacts/kong-config-*/*.yaml ${{ env.GLOBAL_PATH }}/kong/merges/*.yaml --populate-env-vars  -o kong-merged.yaml
 
-      - name: Add tags to all Kong Configuration
+      - name: Add additional tags
         run: |
-          cat kong-merged.yaml | deck file add-tags generated_by:deck -o ${{ env.KONG_CONFIG_FILE }}
+          cat kong-merged.yaml | deck file add-tags generated_by:deck -o kong-merged.yaml
      
       - name: Lint Merged Kong Configuration
         run: |
@@ -219,6 +219,7 @@ jobs:
           echo ""
 
       - name: Upload Artifacts
+        if: steps.diff.outputs.has_diff == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: artifacts
