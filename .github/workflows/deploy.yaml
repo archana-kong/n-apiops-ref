@@ -12,13 +12,18 @@ on:
           - dev
           - staging
           - production
+      konnect_control_plane_name:
+          description: 'Name of the Konnect Control Plane to deploy to'
+          required: true
+          type: string
 
 env:
   COMMON_PATH: ${{ github.workspace }}/.common
   GLOBAL_PATH: ${{ github.workspace }}/.global
+  KONNECT_SERVER_URL: https://eu.api.konghq.com
 
 jobs:
-  build-image:
+  build-apis:
     runs-on: ubuntu-latest
     
     strategy:
@@ -86,7 +91,7 @@ jobs:
 
       - name: Lint Kong Configuration
         run: |
-          deck file lint -s ${{ env.KONG_CONFIG_FILE }} ${{ env.COMMON_PATH }}/kong.ruleset.yaml
+          deck file lint -s ${{ env.KONG_CONFIG_FILE }} ${{ env.COMMON_PATH }}/kong.ruleset.api.yaml
 
       - name: Validate Resulting Kong Configuration
         run: |
@@ -103,3 +108,135 @@ jobs:
           name: kong-config-${{ matrix.api }}
           path: |
             ${{ env.API_PATH }}/kong.yaml
+
+  build-config:
+    runs-on: ubuntu-latest
+    needs: build-apis
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: kong/setup-deck@v1
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find ./artifacts -type f -name "*.yaml" | while read file; do
+            echo "=== $file ==="
+            cat "$file"
+            echo ""
+          done
+      
+      - name: Merge Kong Configuration
+        run: |
+          deck file render ./artifacts/*/*.yaml ${{ env.GLOBAL_PATH }}/kong/merges/*.yaml --populate-env-vars  -o kong-merged.yaml
+
+      - name: Lint Merged Kong Configuration
+        run: |
+          deck file lint -s kong-merged.yaml ${{ env.COMMON_PATH }}/kong.ruleset.global.yaml
+
+      - name: Validate Merged Kong Configuration
+        run: |
+          deck file validate kong-merged.yaml
+
+      - name: Display Merged Kong Configuration
+        run: |
+          echo "Merged Kong Configuration:"
+          cat kong-merged.yaml
+
+      - name: Diff Config
+        shell: bash
+        run: |
+          deck gateway diff kong-merged.yaml  \
+            --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+            --konnect-token="${{ secrets.KONNECT_TOKEN }}" \
+            --konnect-control-plane-name="${{ inputs.konnect_control_plane_name }}" > kong_diff.txt
+
+      - name: Display Diff Output
+        run: |
+          echo "Diff output:"
+          cat kong_diff.txt
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: config
+          path: |
+            kong-merged.yaml
+            kong_diff.txt
+
+  apply-config:
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: build-config
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: kong/setup-deck@v1
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: config
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          cat ./config/config/kong-merged.yaml
+
+      - name: Get Control Plane Backup
+        shell: bash
+        run: |
+          deck gateway dump \
+            --yes \
+            --with-id \
+            --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+            --konnect-token="${{ secrets.KONNECT_TOKEN }}" \
+            --konnect-control-plane-name="${{ inputs.konnect_control_plane_name }}" -o kong_backup.yaml
+
+      - name: Sync Config
+        id: sync
+        shell: bash
+        run: |
+          deck gateway sync ./config/config/kong-merged.yaml  \
+            --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+            --konnect-token="${{ secrets.KONNECT_TOKEN  }}" \
+            --konnect-control-plane-name="${{ inputs.konnect_control_plane_name }}"
+        continue-on-error: true
+
+      - name: Rollback Config
+        if: steps.sync.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "Sync failed. Rolling back configuration..."
+          deck gateway sync kong_backup.yaml  \
+            --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+            --konnect-token="${{ secrets.KONNECT_TOKEN }}" \
+            --konnect-control-plane-name="${{ inputs.konnect_control_plane_name }}"
+
+      - name: Get a fresh backup
+        if: steps.sync.outcome == 'success' || steps.sync.outcome == 'skipped'
+        shell: bash
+        run: |
+          deck gateway dump \
+            --yes \
+            --with-id \
+            --select-tag generated_by:deck \
+            --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+            --konnect-token="${{ secrets.KONNECT_TOKEN }}" \
+            --konnect-control-plane-name="${{ inputs.konnect_control_plane_name }}" -o kong_backup.yaml
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts
+          path: |
+            kong_backup.yaml
