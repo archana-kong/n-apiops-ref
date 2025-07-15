@@ -13,17 +13,93 @@ on:
           - staging
           - production
 
+env:
+  COMMON_PATH: ${{ github.workspace }}/.common
+  GLOBAL_PATH: ${{ github.workspace }}/.global
+
 jobs:
   build-image:
     runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        api: [flights, routes]
 
     env:
-      APIS_PATH: ${{ github.workspace }}/apis
-      COMMON_PATH: ${{ github.workspace }}/.common
-      GLOBAL_PATH: ${{ github.workspace }}/.global
+      API_PATH: ${{ github.workspace }}/apis/${{ matrix.api }}
+      KONG_CONFIG_FILE: $API_PATH/kong.yaml
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - uses: kong/setup-deck@v1
+      
+      - name: Validate Initial Kong Configuration
+        run: |
+          deck file validate ${{ env.API_PATH }}/kong.yaml
+
+      - name: Add plugins
+        shell: bash
+        run: |
+          plugin_dirs=(
+            "${{ env.API_PATH }}/kong/plugins"
+            "${{ env.COMMON_PATH }}/kong/plugins"
+          )
+
+          for dir in "${plugin_dirs[@]}"; do
+            # Check if the directory exists and contains any YAML files
+            # If it does, add the plugins to the Kong configuration.
+            # If it does not, skip to the next directory.
+            if [ -d "$dir" ] && [ "$(ls -A $dir/*.yaml 2>/dev/null)" ]; then
+              echo "Adding plugins from $dir"
+              cat ${{ env.KONG_CONFIG_FILE }} | deck file add-plugins $dir/*.yaml -o ${{ env.KONG_CONFIG_FILE }}
+            else
+              echo "No plugins found in $dir"
+            fi
+          done
+
+      - name: Add patches
+        shell: bash
+        run: |
+          patches_dirs=(
+            "${{ env.API_PATH }}/kong/patches"
+            "${{ env.COMMON_PATH }}/kong/patches"
+          )
+
+          for dir in "${patches_dirs[@]}"; do
+            if [ -d "$dir" ] && [ "$(ls -A $dir/*.yaml 2>/dev/null)" ]; then
+              echo "Adding patches from $dir"
+              cat ${{ env.KONG_CONFIG_FILE }} | deck file patch $dir/*.yaml -o ${{ env.KONG_CONFIG_FILE }}
+            else
+              echo "No patches found in $dir"
+            fi
+          done
+
+      - name: Add tags
+        run: |
+          cat ${{ env.KONG_CONFIG_FILE }} | deck file add-tags ${{ matrix.api }} "generated_by:deck" -o ${{ env.KONG_CONFIG_FILE }}
+
+      - name: Render Kong Configuration
+        run: |
+          deck file render ${{ env.KONG_CONFIG_FILE }} --populate-env-vars  -o ${{ env.KONG_CONFIG_FILE }}
+
+      - name: Lint Kong Configuration
+        run: |
+          deck file lint -s ${{ env.KONG_CONFIG_FILE }} ${{ env.COMMON_PATH }}/kong.ruleset.yaml
+
+      - name: Validate Resulting Kong Configuration
+        run: |
+          deck file validate ${{ env.API_PATH }}/kong.yaml
+
+      - name: Display Kong Configuration
+        run: |
+          echo "Kong Configuration:"
+          cat ${{ env.KONG_CONFIG_FILE }}
+
+      - name: Upload Kong Configuration
+        uses: actions/upload-artifact@v4
+        with:
+          name: kong-config-${{ matrix.api }}
+          path: |
+            ${{ env.API_PATH }}/kong.yaml
