@@ -1,0 +1,29 @@
+name: Deploy Kong Configuration
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select the environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+
+    env:
+      APIS_PATH: ${{ github.workspace }}/apis
+      COMMON_PATH: ${{ github.workspace }}/.common
+      GLOBAL_PATH: ${{ github.workspace }}/.global
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: kong/setup-deck@v1

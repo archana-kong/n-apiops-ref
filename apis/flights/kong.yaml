@@ -1,0 +1,47 @@
+_format_version: "3.0"
+services:
+- host: api.kong-air.com
+  name: flights-service
+  path: /
+  plugins: []
+  port: 443
+  protocol: https
+  routes:
+  - methods:
+    - GET
+    name: flights-service_get-flights
+    paths:
+    - ~/flights$
+    plugins: []
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  - methods:
+    - GET
+    name: flights-service_get-flight-by-number
+    paths:
+    - ~/flights/(?<flightnumber>[^#?/]+)$
+    plugins: []
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - methods:
+    - GET
+    name: flights-service_get-flight-details
+    paths:
+    - ~/flights/(?<flightnumber>[^#?/]+)/details$
+    plugins: []
+    regex_priority: 100
+    strip_path: false
+    tags: []
+  - methods:
+    - GET
+    name: flights-service_health
+    paths:
+    - ~/flights/health$
+    plugins: []
+    regex_priority: 200
+    strip_path: false
+    tags: []
+  tags: []
+upstreams: []
