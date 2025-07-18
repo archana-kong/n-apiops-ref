@@ -20,7 +20,7 @@ on:
 env:
   COMMON_PATH: ${{ github.workspace }}/common
   GLOBAL_PATH: ${{ github.workspace }}/global
-  KONNECT_SERVER_URL: https://eu.api.konghq.com
+  KONNECT_SERVER_URL: https://us.api.konghq.com
 
 jobs:
   build-apis:
@@ -39,6 +39,10 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: kong/setup-deck@v1
+        with:
+          deck-version: "1.40.3"
+          wrapper: false
+          token: ${{ secrets.KONNECT_TOKEN }}
       
       - name: Validate Initial Kong Configuration
         run: |
@@ -121,6 +125,10 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: kong/setup-deck@v1
+        with:
+          deck-version: "1.40.3"
+          wrapper: false
+          token: ${{ secrets.KONNECT_TOKEN }}
       
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -238,6 +246,10 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: kong/setup-deck@v1
+        with:
+          deck-version: "1.40.3"
+          wrapper: false
+          token: ${{ secrets.KONNECT_TOKEN }}
       
       - name: Download all artifacts
         uses: actions/download-artifact@v4
