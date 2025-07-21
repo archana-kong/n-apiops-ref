@@ -21,8 +21,8 @@ This workflow allows you to:
 Manually run the workflow via **workflow_dispatch**.
 
 ### Inputs Required:
-- `environment`: Choose from `dev`, `staging`, `production`
-- `konnect_control_plane_name`: Name of the Konnect control plane
+- `environment`: Choose from `dev`, `staging`, `production` (optional)
+- `konnect_control_plane_name`: Name of the Konnect control plane (mandatory)
 
 ---
 
