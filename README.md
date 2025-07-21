@@ -106,5 +106,4 @@ Ensure these are set in GitHub Secrets:
 
 ## 📎 Reference
 - [Kong decK Docs](https://docs.konghq.com/deck/)
-- [Konnect API Reference](https://docs.konghq.com/konnect/)
-- [GitHub Actions](https://docs.github.com/en/actions)
+
