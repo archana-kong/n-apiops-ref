@@ -3,4 +3,7 @@ consumers:
 - username: bob
   keyauth_credentials:
   - key: bob-key
+- username: joe
+  keyauth_credentials:
+  - key: joe-key
   
